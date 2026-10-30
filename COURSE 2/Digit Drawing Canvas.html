@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: sans-serif; text-align: center; background: #1e1e1e; color: #eee; padding: 20px; }
+  canvas { border: 2px solid #888; background: black; cursor: crosshair; touch-action: none; }
+  button { margin: 8px 4px; padding: 8px 14px; font-size: 14px; cursor: pointer; }
+  textarea { width: 90%; max-width: 500px; height: 140px; margin-top: 10px; font-family: monospace; font-size: 12px; }
+  #preview { image-rendering: pixelated; border: 1px solid #555; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h3>Draw a digit (0-9)</h3>
+<canvas id="draw" width="280" height="280"></canvas><br>
+<button onclick="clearCanvas()">Clear</button>
+<button onclick="generateArray()">Convert to 20x20 array</button>
+<br>
+<canvas id="preview" width="100" height="100"></canvas>
+<br>
+<textarea id="output" readonly placeholder="Pixel array will appear here..."></textarea>
+
+<script>
+const canvas = document.getElementById('draw');
+const ctx = canvas.getContext('2d');
+ctx.fillStyle = 'black';
+ctx.fillRect(0,0,280,280);
+ctx.strokeStyle = 'white';
+ctx.lineWidth = 16;
+ctx.lineCap = 'round';
+ctx.lineJoin = 'round';
+
+let drawing = false;
+
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+  return {x, y};
+}
+
+function start(e) {
+  drawing = true;
+  const p = getPos(e);
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  e.preventDefault();
+}
+function move(e) {
+  if (!drawing) return;
+  const p = getPos(e);
+  ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+  e.preventDefault();
+}
+function end() { drawing = false; }
+
+canvas.addEventListener('mousedown', start);
+canvas.addEventListener('mousemove', move);
+canvas.addEventListener('mouseup', end);
+canvas.addEventListener('mouseleave', end);
+canvas.addEventListener('touchstart', start);
+canvas.addEventListener('touchmove', move);
+canvas.addEventListener('touchend', end);
+
+function clearCanvas() {
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0,0,280,280);
+  document.getElementById('output').value = '';
+  const pctx = document.getElementById('preview').getContext('2d');
+  pctx.clearRect(0,0,100,100);
+}
+
+function generateArray() {
+  // Downsample 280x280 -> 20x20 using a temp canvas
+  const tmp = document.createElement('canvas');
+  tmp.width = 20; tmp.height = 20;
+  const tctx = tmp.getContext('2d');
+  tctx.imageSmoothingEnabled = true;
+  tctx.drawImage(canvas, 0, 0, 20, 20);
+  const imgData = tctx.getImageData(0, 0, 20, 20).data;
+
+  let values = [];
+  for (let i = 0; i < 400; i++) {
+    const idx = i * 4;
+    // grayscale from R channel (white on black, so R=G=B), normalize 0-1
+    const gray = imgData[idx] / 255;
+    values.push(gray.toFixed(4));
+  }
+
+  document.getElementById('output').value =
+    'x_test = np.array([[' + values.join(', ') + ']])';
+
+  // Show preview (scaled up so you can see the 20x20 result)
+  const pctx = document.getElementById('preview').getContext('2d');
+  pctx.imageSmoothingEnabled = false;
+  pctx.clearRect(0,0,100,100);
+  pctx.drawImage(tmp, 0, 0, 100, 100);
+}
+</script>
+</body>
+</html>
